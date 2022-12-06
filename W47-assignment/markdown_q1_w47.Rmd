@@ -1,0 +1,34 @@
+---
+title: "Assignment4"
+author: "Anne Hornung"
+date: "28/11/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Danish monarchs, question 1
+```{r danish monarchs-dataset, eval = TRUE}
+# MY CODE HERE
+
+library(tidyverse)
+library(here)
+
+danish_monarchs_clean <- read_excel(here("data", "danish_monarchs_clean.xlsx"))
+
+```
+
+```{r danish monarchs-plot, eval = TRUE}
+# MY CODE HERE
+
+danish_monarchs_clean %>%
+  select(monarch_name,start_reign,duration_of_reign) %>%
+  ggplot(aes(x=reorder(monarch_name,start_reign),y=duration_of_reign))+
+  geom_col() +
+  coord_flip() +
+  labs(title = "Danish monarchs", x = "Monarch name", y = "Duration of reign")
+
+```
+
