@@ -1,0 +1,192 @@
+---
+title: "Queen Margrethe II's New Year's Address 2020+2021 (Danish)"
+author: "Anne Louise Bank Hornung"
+date: "created 7/1/2023, updated date: `r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+### The Queen of Denmark's New Year Address 2020 and 2021 (Danish)
+
+```{r getting-started}
+
+# Attaching packages and lexicon
+
+library(tidyverse)
+library(here)
+
+# For text mining
+library(pdftools)
+library(textdata)
+library(tidytext)
+library(ggwordcloud)
+library(Sentida)
+
+# The following code is necessary to run if working with æøå on macOS, which is the case for me
+Sys.setlocale(category = "LC_ALL", locale = "UTF-8")
+
+```
+
+## Get the 2020-2021 Danish NYE speeches from the Queen
+
+```{r get-documents}
+
+NYE_d_20_21_path <- here("data","NYE_d_20_21.pdf")
+NYE_d_20_21_text <- pdf_text(NYE_d_20_21_path)
+
+```
+
+
+```{r single page extract}
+
+# Attempt single page extract to make sure the pages in the NYE_d_20_21.pdf are the same as when running it here
+NYE_d_20_21_p3 <- NYE_d_20_21_text[3]
+
+NYE_d_20_21_p3
+
+# It is indeed the same pages
+
+```
+
+## Wrangling
+```{r wrangling}
+# Wrangling to split up pages into different lines, unnest into regular columns, and removing leading/trailing white space
+
+NYE_d_20_21_df <- data.frame(NYE_d_20_21_text) %>% 
+  mutate(text_full = str_split(NYE_d_20_21_text, pattern = '\\n')) %>% 
+  unnest(text_full) %>% 
+  mutate(text_full = str_trim(text_full))
+
+```
+
+## Get the tokens (individual words) in tidy format
+```{r tokenize}
+
+NYE_d_20_21_tokens <- NYE_d_20_21_df %>% 
+  unnest_tokens(word, text_full)
+
+# Now there are only words, no punctuations or similar, and each word has its own row
+```
+
+# Count words
+```{r count words}
+
+NYE_d_20_21_wc <- NYE_d_20_21_tokens %>% 
+  count(word) %>% 
+  arrange(-n)
+
+# There are too many superfluous words, such as "og" (and), "i" (in), and "det" (that)
+# A Danish stopword list will need to be run to remove superfluous words
+```
+
+# Danish stopwords removal
+```{r danish stopword removal}
+
+stopord <- read_csv("https://gist.githubusercontent.com/maxodsbjerg/f2271ec1a1d76af4b91eaa78cf6f2016/raw/059220dc20c68a2bdd00b0699cf97c23ddbc7f04/stopord.txt")
+
+NYE_d_20_21_stop <- NYE_d_20_21_tokens %>%
+  anti_join(stopord) %>%
+  select(-NYE_d_20_21_text)
+
+```
+
+
+```{r second word count}
+
+# Check word count again after stop word removal
+
+NYE_d_20_21_swc <- NYE_d_20_21_stop %>% 
+  count(word) %>% 
+  arrange(-n)
+
+# Second word count shows 772 observations
+```
+
+(by this time it could be relevant to remove numbers also, but since it's a NYE speech, it could contain relevant numbers)
+
+# Word cloud
+```{r word cloud prep}
+
+# Prep to find number of unique words
+length(unique(NYE_d_20_21_stop$word))
+# there are 772 unique words, but these are too many for a word cloud, so I'll find the 100 most frequent words
+
+# top 100 most frequent
+NYE_d_20_21_top100 <- NYE_d_20_21_stop %>% 
+  count(word) %>% 
+  arrange(-n) %>% 
+  head(100)
+
+```
+
+```{r word cloud}
+# Make a word cloud of the Danish top100
+NYE_d_20_21_cloud <- ggplot(data = NYE_d_20_21_top100, aes(label = word)) +
+  geom_text_wordcloud() +
+  theme_minimal() +
+  labs(title = "Basic word cloud")
+
+NYE_d_20_21_cloud
+
+# Customization of word cloud
+ggplot(data = NYE_d_20_21_top100, aes(label = word, size = n)) +
+  geom_text_wordcloud_area(aes(color = n), shape = "pentagon") +
+  scale_size_area(max_size = 15) +
+  scale_color_gradientn(colors = c("black","blue","red")) +
+  theme_minimal() +
+  labs(title = "Most frequently occuring words")
+
+```
+
+
+### Running Sentida
+
+```{r sentida speeches 2020+2021}
+
+# Whole merged speech from 2020+2021
+
+sentida("selvtillid, undgå, inficeret, tvunget, krise, tryk, bøde, vidunderlig, dejlig, beroligetryk, krise, værdi, omsorg, hurtigt, styrke, nå, pålagt, tvunget, faret vild, påvirket, betyder noget, faret vild, tillid, krise, krise, håber, nået, sjovt, glæde, opmuntring, kæmpe kamp, krise, ønsker, nødsituation, lykkelig, ønsker, let, sikre, sikker, sikker, skære, ønsker, fejret, glæde, varm, ønsker, glæde, mærkelig, glemme, ild, håber, inderligt, lykkelig, Gud, velsigne, Gud, velsigne, fejre, håber, hårdt, betyder noget, lethed, ak, syg, udfordring, sikre, sikkert, stof, fremskridt, følelse, innovation, frygt, forurene, kæmpe stor, fordel, ambitiøs, kæmpe stor, naturlig, kamp, let, lidelse, smerte, svært, fornærmet, lo, uvidenhed, stof, forkert, hårdt, inspiration, stof, entusiastisk, vidunderlig, forsinke, fejre, vidunderlig, ånd, glæde, fornøjelse, smuk, inderligt, forpligtelse, imponerende, ønsker, varm, vidunderlig, inderligt, varme, ønsker, dukkede op, chokerende, desperat, svært, imponerende, varm, trofast, inderligt, lykkelig, nødsituation, lykkelig, fornøjelse, fornøjelse, betydning, fejre, stolt, engageret, fremme, fejre, svært, elsker, elsker, lykkelig, Gud, velsigne", output = "mean")
+
+NYE_d_20_21_sentida <- sentida("selvtillid, undgå, inficeret, tvunget, krise, tryk, bøde, vidunderlig, dejlig, beroligetryk, krise, værdi, omsorg, hurtigt, styrke, nå, pålagt, tvunget, faret vild, påvirket, betyder noget, faret vild, tillid, krise, krise, håber, nået, sjovt, glæde, opmuntring, kæmpe kamp, krise, ønsker, nødsituation, lykkelig, ønsker, let, sikre, sikker, sikker, skære, ønsker, fejret, glæde, varm, ønsker, glæde, mærkelig, glemme, ild, håber, inderligt, lykkelig, Gud, velsigne, Gud, velsigne, fejre, håber, hårdt, betyder noget, lethed, ak, syg, udfordring, sikre, sikkert, stof, fremskridt, følelse, innovation, frygt, forurene, kæmpe stor, fordel, ambitiøs, kæmpe stor, naturlig, kamp, let, lidelse, smerte, svært, fornærmet, lo, uvidenhed, stof, forkert, hårdt, inspiration, stof, entusiastisk, vidunderlig, forsinke, fejre, vidunderlig, ånd, glæde, fornøjelse, smuk, inderligt, forpligtelse, imponerende, ønsker, varm, vidunderlig, inderligt, varme, ønsker, dukkede op, chokerende, desperat, svært, imponerende, varm, trofast, inderligt, lykkelig, nødsituation, lykkelig, fornøjelse, fornøjelse, betydning, fejre, stolt, engageret, fremme, fejre, svært, elsker, elsker, lykkelig, Gud, velsigne", output = "mean")
+
+NYE_d_20_21_sentida
+
+# mean is 1,02, so actually a more positive speech than NYE_d_18_19 according to Sentida
+
+```
+
+```{r sentida first part}
+
+# First part of the 2020+2021 speeches
+
+sentida("selvtillid, undgå, inficeret, tvunget, krise, tryk, bøde, vidunderlig, dejlig, beroligetryk, krise, værdi, omsorg, hurtigt, styrke, nå, pålagt, tvunget, faret vild, påvirket, betyder noget, faret vild, tillid, krise, krise, håber, nået, sjovt, glæde, opmuntring, kæmpe kamp, krise, ønsker, nødsituation, lykkelig, ønsker, let, sikre, sikker, sikker, skære, ønsker, fejret, glæde, varm, ønsker, glæde, mærkelig, glemme, ild, håber, inderligt, lykkelig, Gud, velsigne, Gud, velsigne, fejre, håber, hårdt, betyder noget, lethed, ak, syg, udfordring, sikre, sikkert, stof, fremskridt, følelse, innovation, frygt", output = "mean")
+
+# mean is 0,7
+# Perhaps the Queen wants to say the more negative words first
+
+```
+
+```{r sentida last part}
+
+# Second part of the 2020+2021 speeches
+
+sentida("forurene, kæmpe stor, fordel, ambitiøs, kæmpe stor, naturlig, kamp, let, lidelse, smerte, svært, fornærmet, lo, uvidenhed, stof, forkert, hårdt, inspiration, stof, entusiastisk, vidunderlig, forsinke, fejre, vidunderlig, ånd, glæde, fornøjelse, smuk, inderligt, forpligtelse, imponerende, ønsker, varm, vidunderlig, inderligt, varme, ønsker, dukkede op, chokerende, desperat, svært, imponerende, varm, trofast, inderligt, lykkelig, nødsituation, lykkelig, fornøjelse, fornøjelse, betydning, fejre, stolt, engageret, fremme, fejre, svært, elsker, elsker, lykkelig, Gud, velsigne", output = "mean")
+
+# mean is 1,3
+
+
+```
+
+
+
+
+
+
+
+
+

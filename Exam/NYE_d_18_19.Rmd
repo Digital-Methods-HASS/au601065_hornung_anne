@@ -1,0 +1,165 @@
+---
+title: "Queen Margrethe II's New Year's Address 2018+2019 (Danish)"
+author: "Anne Louise Bank Hornung"
+date: "7/1/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### The Queen of Denmark's New Year Address 2018 and 2019 (Danish)
+
+```{r getting-started}
+
+# Attaching packages and lexicon
+
+library(tidyverse)
+library(here)
+
+# For text mining
+library(pdftools)
+library(textdata)
+library(tidytext)
+library(ggwordcloud)
+library(Sentida)
+
+```
+
+```{r ÆØÅ}
+# The following code is necessary to run if working with æøå on macOS (which is the case for me)
+Sys.setlocale(category = "LC_ALL", locale = "UTF-8")
+
+```
+
+## Get the 2020-2021 Danish NYE speeches from the Queen
+
+```{r get-documents}
+
+NYE_d_18_19_path <- here("data","NYE_d_18_19.pdf")
+NYE_d_18_19_text <- pdf_text(NYE_d_18_19_path)
+
+```
+
+```{r single page extract}
+
+# Attempt single page extract to make sure the pages in the NYE_d_20_21.pdf are the same as when running it here
+NYE_d_18_19_p3 <- NYE_d_18_19_text[3]
+
+NYE_d_18_19_p3
+
+# It is indeed the same pages
+```
+
+## Wrangling
+```{r wrangling}
+# Wrangling to split up pages into different lines, unnest into regular columns, and removing leading/trailing white space
+
+NYE_d_18_19_df <- data.frame(NYE_d_18_19_text) %>% 
+  mutate(text_full = str_split(NYE_d_18_19_text, pattern = '\\n')) %>% 
+  unnest(text_full) %>% 
+  mutate(text_full = str_trim(text_full))
+
+```
+
+## Get the tokens (individual words) in tidy format
+```{r tokenize}
+
+NYE_d_18_19_tokens <- NYE_d_18_19_df %>% 
+  unnest_tokens(word, text_full)
+
+# Now there are only words, no punctuations or similar, and each word has its own row
+```
+
+
+# Count words
+```{r count words}
+
+NYE_d_18_19_wc <- NYE_d_18_19_tokens %>% 
+  count(word) %>% 
+  arrange(-n)
+
+# There are too many superfluous words, such as "og" (and), "det" (that), and "i" (in) 
+# A Danish stopword list will need to be run to remove superfluous words
+```
+
+# Danish stopwords removal
+```{r danish stopword removal}
+
+stopord <- read_csv("https://gist.githubusercontent.com/maxodsbjerg/f2271ec1a1d76af4b91eaa78cf6f2016/raw/059220dc20c68a2bdd00b0699cf97c23ddbc7f04/stopord.txt")
+
+NYE_d_18_19_stop <- NYE_d_18_19_tokens %>%
+  anti_join(stopord) %>%
+  select(-NYE_d_18_19_text)
+
+```
+
+```{r second word count}
+
+# Check word count again after stop word removal
+
+NYE_d_18_19_swc <- NYE_d_18_19_stop %>% 
+  count(word) %>% 
+  arrange(-n)
+
+# Second word count shows 692 observations
+```
+
+(by this time it could be relevant to remove numbers also, but since it's a NYE speech, it could contain relevant numbers)
+
+
+# Word cloud
+```{r word cloud prep}
+
+# Prep to find number of unique words
+length(unique(NYE_d_18_19_stop$word))
+# there are 692 unique words, but these are too many for a word cloud, so I'll find the 100 most frequent words
+
+# top100 most frequent
+NYE_d_18_19_top100 <- NYE_d_18_19_stop %>% 
+  count(word) %>% 
+  arrange(-n) %>% 
+  head(100)
+
+```
+
+```{r word cloud}
+# Make a word cloud of the Danish top100
+NYE_d_18_19_cloud <- ggplot(data = NYE_d_18_19_top100, aes(label = word)) +
+  geom_text_wordcloud() +
+  theme_minimal() +
+  labs(title = "Basic word cloud")
+
+NYE_d_18_19_cloud
+
+# Customization of word cloud
+ggplot(data = NYE_d_18_19_top100, aes(label = word, size = n)) +
+  geom_text_wordcloud_area(aes(color = n), shape = "pentagon") +
+  scale_size_area(max_size = 15) +
+  scale_color_gradientn(colors = c("black","blue","red")) +
+  theme_minimal() +
+  labs(title = "Most frequently occuring words")
+
+```
+
+
+### Running Sentida
+
+```{r sentida speeches 2018+2019}
+
+# Whole merged speech from 2018+2019
+
+sentida("slår, glad, omfavn, forlad, fremskridt, fremskridt, fremskridt, krav, savner, ivrig, frygt, glemt, muligheder, glæde, glem, let, del, forlad, glem, omsorg, mislykkes, ulykkelig, gør ondt, tillid, berettiget, styrke, tillid, sund, stærk, mislykkes, betroet, trist, forkert, vanskelig, sag, renere, spild, fast, undgå, forsigtig, generøs, fremskridt, håb, vækst, varme, glad, fredelig, konflikter, fint, stolt, sag, savnet, glad, nødsituation, brand, fejre, sikkert, sikker, festlig, festlig, hård, død, varm, sympati, smukt, fejret, fejre, jublende, fin, glad, taknemmelig, stolt, vidunderlig, varm, støtte, omfavnelse, ånd, håb, tillid, glad, gud, velsigne, trist, vanskelig, stimulerende, smuk, storslået, sårbar, delt, smuk, udfordring, betale, følelse, vanskelig, følelse, sårbar, del, sag, euforisk, glæde, del, glæde, dårligt, tragisk, tab, ånd, solidaritet, stand, anti, grim, anti, betal, fejre, milepæl, fint, fejre, nå, fejre, varm, festlig ive, stærk, glem, fredeligt, varm, tillid, glad, varm, isoleret, udsat, inderlig, ønsker, frihed, savnet, ønsker, nødsituation, omsorg, fejre, sikkert, ønsker, loyalitet, glad, stolt, varm, fejre, taknemmelig, varme, inspiration, muligheder, ønsker, ønsker, glad, gud, velsigne", output = "mean")
+
+NYE_d_18_19_sentida <- sentida("slår, glad, omfavn, forlad, fremskridt, fremskridt, fremskridt, krav, savner, ivrig, frygt, glemt, muligheder, glæde, glem, let, del, forlad, glem, omsorg, mislykkes, ulykkelig, gør ondt, tillid, berettiget, styrke, tillid, sund, stærk, mislykkes, betroet, trist, forkert, vanskelig, sag, renere, spild, fast, undgå, forsigtig, generøs, fremskridt, håb, vækst, varme, glad, fredelig, konflikter, fint, stolt, sag, savnet, glad, nødsituation, brand, fejre, sikkert, sikker, festlig, festlig, hård, død, varm, sympati, smukt, fejret, fejre, jublende, fin, glad, taknemmelig, stolt, vidunderlig, varm, støtte, omfavnelse, ånd, håb, tillid, glad, gud, velsigne, trist, vanskelig, stimulerende, smuk, storslået, sårbar, delt, smuk, udfordring, betale, følelse, vanskelig, følelse, sårbar, del, sag, euforisk, glæde, del, glæde, dårligt, tragisk, tab, ånd, solidaritet, stand, anti, grim, anti, betal, fejre, milepæl, fint, fejre, nå, fejre, varm, festlig ive, stærk, glem, fredeligt, varm, tillid, glad, varm, isoleret, udsat, inderlig, ønsker, frihed, savnet, ønsker, nødsituation, omsorg, fejre, sikkert, ønsker, loyalitet, glad, stolt, varm, fejre, taknemmelig, varme, inspiration, muligheder, ønsker, ønsker, glad, gud, velsigne", output = "mean")
+
+NYE_d_18_19_sentida
+
+# mean is 0,96 in the Sentida score
+# In the NYEs_q_18_19 the mean was also 0,9, meaning a slightly positive speech in both English and Danish
+# except in the Sentida package a mean of 0,9 means "very weak positive emotion"
+
+```
+
+

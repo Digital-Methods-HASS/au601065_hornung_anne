@@ -1,0 +1,262 @@
+---
+title: "Queen Margrethe II's New Year’s Address 2018+2019 (English)"
+author: "Anne Louise Bank Hornung"
+date: ""created 6/1/2023, updated date: `r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Getting started on the Queen's speeches 2018/2019 (English)
+
+```{r getting started}
+
+# Attaching packages and lexicon
+library(tidyverse)
+library(here)
+
+# For text mining
+library(pdftools)
+library(textdata)
+library(tidytext)
+library(ggwordcloud)
+
+# For later sentiment analysis
+
+# Categorizes into 8 emotions (anger, anticipation, disgust, fear, joy, sadness, surprise, trust) and positive / negative
+get_sentiments(lexicon = "nrc")
+
+# Assigns words with a score that runs between -5 and 5 (-5 most negative sentiment, 5 most positive sentiment)
+get_sentiments(lexicon = "afinn")
+
+# Categorizes words into a binary fashion (positive and negative)
+get_sentiments(lexicon = "bing")
+```
+
+
+## Get the 2018-2019 translated English NYE speeches from the Queen
+```{r get-documents}
+
+NYEs_q_18_19_path <- here("data","NYE-q-18-19.pdf")
+NYEs_q_18_19_text <- pdf_text(NYEs_q_18_19_path)
+```
+
+```{r single page extract}
+
+# Attempt single page extract to make sure the pages in the NYE-q-18-19.pdf are the same as when running it here
+NYEs_q_18_19_p3 <- NYEs_q_18_19_text[3]
+
+NYEs_q_18_19_p3
+
+# It is indeed the same pages
+```
+
+## Wrangling
+```{r wrangling}
+# Wrangling to split up pages into different lines, unnest into regular columns, and removing leading/trailing white space
+
+NYEs_q_18_19_df <- data.frame(NYEs_q_18_19_text) %>% 
+  mutate(text_full = str_split(NYEs_q_18_19_text, pattern = '\\n')) %>% 
+  unnest(text_full) %>% 
+  mutate(text_full = str_trim(text_full)) 
+
+```
+
+## Get the tokens (individual words) in tidy format
+```{r tokenize}
+
+NYEs_q_18_19_tokens <- NYEs_q_18_19_df %>% 
+  unnest_tokens(word, text_full)
+
+# now there are only words, no punctuations or similar, and each word has its own row
+
+```
+
+
+# Count words
+```{r word count}
+
+# count the words
+NYEs_q_18_19_wc <- NYEs_q_18_19_tokens %>% 
+  count(word) %>% 
+  arrange(-n)
+
+NYEs_q_18_19_wc
+# there are too many superfluous words, so we need to do a stopword removal in English
+
+```
+
+
+```{r stopwords removal}
+
+# Stop words removal
+NYEs_q_18_19_stop <- NYEs_q_18_19_tokens %>% 
+  anti_join(stop_words) %>% 
+  select(-NYEs_q_18_19_text)
+
+```
+
+
+```{r second word count}
+
+# check word count again
+NYEs_q_18_19_swc <- NYEs_q_18_19_stop %>% 
+  count(word) %>% 
+  arrange(-n)
+# new word count shows 565 words
+
+```
+
+(by this time it could be relevant to remove numbers also, but since it's a NYE speech, it could contain relevant numbers)
+
+## Word cloud of NYEs_q_18_19 speech words
+```{r word cloud prep}
+
+# Prep to find number of unique words
+
+length(unique(NYEs_q_18_19_stop$word))
+
+# there are 565 unique words, but these are too many for a word cloud, so I'll find the 100 most frequent words
+
+NYEs_q_18_19_top100 <- NYEs_q_18_19_stop %>% 
+  count(word) %>% 
+  arrange(-n) %>% 
+  head(100)
+```
+
+```{r word cloud}
+# Make a word cloud of the English top100
+NYEs_q_18_19_cloud <- ggplot(data = NYEs_q_18_19_top100, aes(label = word)) +
+  geom_text_wordcloud() +
+  theme_minimal() +
+  labs(title = "Basic word cloud")
+
+NYEs_q_18_19_cloud
+# very basic word cloud
+
+# customization of word cloud
+ggplot(data = NYEs_q_18_19_top100, aes(label = word, size = n)) +
+  geom_text_wordcloud_area(aes(color = n), shape = "pentagon") +
+  scale_size_area(max_size = 11) +
+  scale_color_gradientn(colors = c("black","blue","red")) +
+  theme_minimal() +
+  labs(title = "Most frequently occuring words")
+
+```
+
+### Sentiment analysis with afinn, nrc and bing
+```{r afinn}
+
+# Bind words in `NYEs_q_18_19_stop` to `afinn` lexicon:
+NYEs_q_18_19_afinn <- NYEs_q_18_19_stop %>% 
+  inner_join(get_sentiments("afinn"))
+
+# Find counts by sentiment ranking
+NYEs_q_18_19_afinn_hist <- NYEs_q_18_19_afinn %>% 
+  count(value)
+
+# Plot 
+ggplot(data = NYEs_q_18_19_afinn_hist, aes(x = value, y = n)) +
+  geom_col()
+# There are most word ranked 1 and 2 on the afinn sentiment scale
+# Not surprising, since it's a motivational speech
+
+# Go in depth with the words ranking -3 on afinn scale
+NYEs_q_18_19_afinn2 <- NYEs_q_18_19_afinn %>% 
+  filter(value == -3)
+
+# Check unique -3-score words
+unique(NYEs_q_18_19_afinn2$word)
+
+# Count & plot them
+NYEs_q_18_19_afinn2_n <- NYEs_q_18_19_afinn2 %>% 
+  count(word, sort = TRUE) %>% 
+  mutate(word = fct_reorder(factor(word), n))
+
+ggplot(data = NYEs_q_18_19_afinn2_n, aes(x = word, y = n)) +
+  geom_col() +
+  coord_flip()
+# None of the occuring -3 words in the plot stick out as being misinterpreted or lost in translation
+
+```
+
+```{r summarize afinn}
+
+# summarize afinn
+NYEs_q_18_19_summary <- NYEs_q_18_19_afinn %>% 
+  summarize(
+    mean_score = mean(value),
+    median_score = median(value)
+  )
+
+NYEs_q_18_19_summary
+
+# Mean is 0.9, median is 1. This means it is a slightly positive speech based on the afinn lexicon
+
+```
+
+
+```{r nrc}
+
+# "binning" text by the feelings they're typically associated with
+NYEs_q_18_19_nrc <- NYEs_q_18_19_stop %>% 
+  inner_join(get_sentiments("nrc"))
+
+# check exclusions
+NYEs_q_18_19_exclude <- NYEs_q_18_19_stop %>% 
+  anti_join(get_sentiments("nrc"))
+
+## View(NYEs_q_18_19_exclude)
+# Count to find the most excluded
+NYEs_q_18_19_exclude_n <- NYEs_q_18_19_exclude %>% 
+  count(word, sort = TRUE)
+
+head(NYEs_q_18_19_exclude_n)
+
+# many words from ´NYEs_q_18_19_exclude_n´ could have been included in sentiment analysis
+
+```
+
+
+```{r bing}
+
+# counts
+NYEs_q_18_19_nrc_n <- NYEs_q_18_19_nrc %>% 
+  count(sentiment, sort = TRUE)
+
+# Plot them
+ggplot(data = NYEs_q_18_19_nrc_n, aes(x = sentiment, y = n)) +
+  geom_col() +
+  labs(title = "Sentiment category frequency")
+
+# The ggplot NYEs_q_18_19_nrc_n shows that there are most words "binned" in the positive, joy, anticipation and trust category
+# Again, this is not surprising due to the NYE speeches nature: it is simply supposed to be a positive speech
+# Compared to NYE_q_e_20_21 speeches, there is a small difference in how many words are "binned" in each category
+
+# Ccount by sentiment and word, and then facet
+NYEs_q_18_19_nrc_n5 <- NYEs_q_18_19_nrc %>% 
+  count(word,sentiment, sort = TRUE) %>% 
+  group_by(sentiment) %>% 
+  top_n(5) %>% 
+  ungroup()
+
+NYEs_q_18_19_nrc_gg <- ggplot(data = NYEs_q_18_19_nrc_n5, aes(x = reorder(word,n), y = n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, ncol = 4, scales = "free") +
+  coord_flip() +
+  theme_minimal() +
+  labs(x = "Word", y = "Count")
+
+NYEs_q_18_19_nrc_gg
+
+# save it
+ggsave(plot = NYEs_q_18_19_nrc_gg, 
+       here("fig_output","NYEs_q_18_19_nrc_sentiment.png"), 
+       height = 8, 
+       width = 7)
+```
+
+
+
